@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: importaoa
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true        # Render gera uma chave aleatória segura
+      - key: RENDER_DATA_DIR
+        value: /var/data
+    disk:
+      name: importaoa-data
+      mountPath: /var/data         # Disco persistente — o SQLite fica aqui
+      sizeGB: 1                    # 1 GB gratuito no plano Starter
