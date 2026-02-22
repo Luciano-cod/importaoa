@@ -21,9 +21,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 # O ficheiro .db fica no disco persistente do Render (/var/data)
 # ou na pasta da aplicação em desenvolvimento local.
-# No Render: Settings → Disks → Mount Path: /var/data
 import os
 _DATA_DIR = os.environ.get("RENDER_DATA_DIR", os.path.dirname(__file__))
+# Cria a pasta automaticamente se não existir (necessário no Render)
+os.makedirs(_DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(_DATA_DIR, "importaoa.db")
 
 
@@ -483,74 +484,4 @@ def get_relatorio_completo():
             FROM encomendas e
             LEFT JOIN redirecionadoras r ON e.redirecionadora_id = r.id
             GROUP BY e.redirecionadora_id
-            ORDER BY count DESC
-        """).fetchall()
-
-        por_estado = db.execute("""
-            SELECT estado, COUNT(*) as count FROM encomendas GROUP BY estado
-        """).fetchall()
-
-        timeline = db.execute("""
-            SELECT substr(data_compra,1,7) as mes,
-                   ROUND(SUM(preco_usd * quantidade + frete_ebay_usd + frete_redir_usd), 2) as usd,
-                   COUNT(*) as count
-            FROM encomendas GROUP BY mes ORDER BY mes
-        """).fetchall()
-
-        totais = db.execute("""
-            SELECT COUNT(*) as total_enc,
-                   ROUND(SUM(preco_usd * quantidade + frete_ebay_usd + frete_redir_usd), 2) as total_usd
-            FROM encomendas
-        """).fetchone()
-
-        return {
-            "por_cat":    [dict(r) for r in por_cat],
-            "por_redir":  [dict(r) for r in por_redir],
-            "por_estado": [dict(r) for r in por_estado],
-            "timeline":   [dict(r) for r in timeline],
-            "total_enc":  totais["total_enc"],
-            "total_usd":  totais["total_usd"] or 0,
-        }
-
-
-# ─── AUTENTICAÇÃO DE UTILIZADORES ──────────────────────────────────────────
-
-def create_user(nome: str, apelido: str, email: str, senha: str) -> dict | None:
-    """Cria novo utilizador. Retorna o utilizador criado ou None se email já existe."""
-    try:
-        with get_db() as db:
-            db.execute(
-                "INSERT INTO utilizadores (nome, apelido, email, senha_hash) VALUES (?, ?, ?, ?)",
-                (nome.strip(), apelido.strip(), email.strip().lower(), generate_password_hash(senha))
-            )
-        return get_user_by_email(email)
-    except Exception:
-        return None
-
-
-def get_user_by_email(email: str) -> dict | None:
-    """Busca utilizador por email."""
-    with get_db() as db:
-        row = db.execute(
-            "SELECT id, nome, apelido, email, senha_hash, criado_em FROM utilizadores WHERE email = ?",
-            (email.strip().lower(),)
-        ).fetchone()
-        return dict(row) if row else None
-
-
-def get_user_by_id(uid: int) -> dict | None:
-    """Busca utilizador por ID."""
-    with get_db() as db:
-        row = db.execute(
-            "SELECT id, nome, apelido, email, criado_em FROM utilizadores WHERE id = ?",
-            (uid,)
-        ).fetchone()
-        return dict(row) if row else None
-
-
-def verify_password(email: str, senha: str) -> dict | None:
-    """Verifica credenciais. Retorna o utilizador se correcto, None caso contrário."""
-    user = get_user_by_email(email)
-    if user and check_password_hash(user["senha_hash"], senha):
-        return user
-    return None
+            ORDE
